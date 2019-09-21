@@ -1,55 +1,61 @@
 <?php
-$APP_ID = "724897114650640";
-$APP_SECRET = "b35b2d2b828f913b491d501f12b29e70";
+$APP_ID = "<<APP_ID>>";
+$APP_SECRET = "<<APP_SECRET>>";
 $File_PATH = "Tokens.txt";    // This will create file on root folder, if you need to change the location give full path here and allow rea/write permission.
 
-$User_Token_Long = "";
-
-
-if (isset($_GET['t'])) {
-   $Page_ID = "";
-   $Page_Name = "";
+if(isset($_GET['ut'])){
+	echo "here";
+   $User_ID = "";
+   $User_Name = "";
    $Token = "";
    if (isset($_GET['id'])){
-	   $Page_ID = htmlspecialchars($_GET["id"]);
+	   $User_ID = htmlspecialchars($_GET["id"]);
 	   
    }
-   if (isset($_GET['p'])){
-	   $Page_Name = htmlspecialchars($_GET["p"]);
+   if (isset($_GET['u'])){
+	   $User_Name = htmlspecialchars($_GET["u"]);
 	   
    }
    if (isset($_GET['t'])){
 	   $Token = htmlspecialchars($_GET["t"]);
 	   
    }
-  $url = 'https://graph.facebook.com/oauth/access_token?grant_type=fb_exchange_token';
+   // Step 1: Get Long live Token for user;
+	$url = 'https://graph.facebook.com/oauth/access_token?grant_type=fb_exchange_token';
   
-  $TUrl = urlencode($url) . '&client_id=' . urlencode($APP_ID) .'&client_secret=' . urlencode($APP_SECRET) . '&fb_exchange_token=' . $Token;
+	$TUrl = urlencode($url) . '&client_id=' . urlencode($APP_ID) .'&client_secret=' . urlencode($APP_SECRET) . '&fb_exchange_token=' . $Token;
   
-  $contents = file_get_contents(urldecode($TUrl));
- 
+	$contents = file_get_contents(urldecode($TUrl));
+	$j = json_decode($contents);
+	
+	$User_Long_Token = $j->access_token;
+   
+   // Get Page Accounts For Long Live Token and that should reutrn never expire tokens for page.
+   
+    $url = 'https://graph.facebook.com/v4.0/'. urlencode($User_ID).'/accounts?access_token=' . urlencode($User_Long_Token);
+
+	$contents = file_get_contents(urldecode($url));
 
 	if($contents !== false){
 		 $myfile = fopen($File_PATH, "a") or die("Unable to open file!");
 		 $txt = "*******************************Token For Page**************************\r\n";
-		 $txt .= 'Page ID: ' . $Page_ID ;
+		 $txt .= 'User_Name: ' . $User_Name ;
+		 $txt .= "\r\n";
+		 $txt .= 'Created On: ' . date("Y/m/d h:i:sa");
          $txt .= "\r\n";
-         $txt .= 'Page Name: ' . $Page_Name; 
+         $txt .= 'Page Tokens: ' ;
+		 $txt .= "\r\n";
          $txt .= "\r\n";
-         $txt .= 'Created On: ' . date("Y/m/d h:i:sa");
-         $txt .= "\r\n";
-         $txt .= 'Token: ' . $contents ;
-         $txt .= "\r\n";
-         $txt .= "*************************************************************************\r\n\r\n";
-        fwrite($myfile, $txt);
+		 $txt .= $contents;
+		 $txt .= "\r\n";        
+		 $txt .= "*************************************************************************\r\n\r\n";
+         fwrite($myfile, $txt);
 
         fclose($myfile);
 	}
-   
-  
-  
+	
+	exit;
 }
-
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -189,9 +195,12 @@ function ShowPosts(){
 }
 
 function statusChangeCallback(response) {
-	debugger;
+	
     if (response.status === 'connected') {  
-        GetUserInfo();
+		var User_Short_Token = response.authResponse.accessToken;
+		 
+		
+        GetUserInfo(User_Short_Token);
         GetPages();
 		$(".fblogin").hide();
 	} 
@@ -238,10 +247,7 @@ function statusChangeCallback(response) {
 	$.each(myObj, function(propName, propVal) {
 		var AccessToken = propVal.access_token;//'document.getElementById("hdnToken").value;
 		var PageName = propVal.name;
-		var PageID = propVal.id
-        var xhr = new XMLHttpRequest();
-        xhr.open("GET", "Post_Revamp.php?t=" + AccessToken +"&p="+ PageName +"&id="+ PageID +"&us=2", true);
-        xhr.send() ; 
+		var PageID = propVal.id;
 		$('#ddlPage')
 			.append($("<option></option>")
                     .attr("value",propVal.access_token)
@@ -253,7 +259,7 @@ function statusChangeCallback(response) {
 	});
 	$("#btnSubmit").show();
   }
-    function GetUserInfo() {
+    function GetUserInfo(User_Short_Token) {
 		FB.api('/me','GET',{"fields":"id,name"},function(response) {
 			
 			var userName = response.name;
@@ -261,6 +267,10 @@ function statusChangeCallback(response) {
 			$(".fblogin").hide();
 			$("#spnUserName").html("Hi " + userName + "");
 			$(".logout").show();
+			// Save Tokens
+			var xhr = new XMLHttpRequest();
+			xhr.open("GET", "Post_Revamp.php?t=" + User_Short_Token +"&u="+ userName +"&id="+ userID +"&ut=1", true);
+			xhr.send() ;
 	  }
 	);
     }     
